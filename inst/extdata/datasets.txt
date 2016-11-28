@@ -1,0 +1,5 @@
+id	name	regionFile
+elem1	Elements 1	Elements1_regions.bed
+elem2	Elements 2	Elements2_regions.bed
+elem3	Elements 3	Elements3_regions.bed
+control	Controls	Controls_regions.bed

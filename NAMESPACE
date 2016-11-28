@@ -1,0 +1,25 @@
+exportPattern("^[[:alpha:]]+")
+import(GenomicRanges,parallel,gtable,grid,graphics,methods)
+importMethodsFrom(IRanges,subsetByOverlaps)
+importFrom(KernSmooth,locpoly)
+importFrom(fda,create.bspline.basis,smooth.basis,eval.fd)
+importFrom(grDevices,bmp,jpeg,pdf,png,tiff,cm.colors,colorRamp,colorRampPalette,rainbow,rgb,dev.off,devAskNewPage)
+importFrom(stats,sd,var,cor,quantile,rbinom,ksmooth)
+importFrom(utils,combn,count.fields,read.delim)
+importFrom(tools,file_path_sans_ext)
+importMethodsFrom(S4Vectors,as.matrix,isEmpty,metadata)
+# Export classes
+exportClasses(IWTomicsData)
+# Export S4 methods for generics defined in other packages
+exportMethods(show,dim,"[",c,merge,rbind,cbind,plot,metadata)
+# Export S4 generics defined in IWTomics, and corresponding S4 methods
+export(IWTomicsData,
+	nRegions,nFeatures,lengthRegions,lengthFeatures,resolution,
+	regions,features,idRegions,idFeatures,nameRegions,nameFeatures,alignment,smooth,
+	testInput,nTests,idRegionsTest,idFeaturesTest,adjusted_pval)
+exportMethods(IWTomicsData,
+	nRegions,nFeatures,lengthRegions,lengthFeatures,resolution,
+	regions,features,idRegions,idFeatures,nameRegions,nameFeatures,alignment,smooth,
+	testInput,nTests,idRegionsTest,idFeaturesTest,adjusted_pval)
+# Export non-generic functions
+export(IWTomicsTest,plotTest,plotSummary)

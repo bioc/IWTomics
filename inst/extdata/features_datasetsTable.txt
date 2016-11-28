@@ -1,0 +1,3 @@
+id	name	elem1	elem2	elem3	control
+ftr1	Feature 1	Feature1_elements1.txt	Feature1_elements2.txt	Feature1_elements3.txt	Feature1_controls.txt
+ftr2	Feature 2	Feature2_elements1.txt	Feature2_elements2.txt	Feature2_elements3.txt	Feature2_controls.txt

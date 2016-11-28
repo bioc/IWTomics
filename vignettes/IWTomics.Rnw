@@ -1,0 +1,638 @@
+%\VignetteIndexEntry{Introduction to IWTomics}
+%\VignetteEngine{knitr::knitr}
+
+\documentclass[12pt]{article}
+
+\usepackage[a4paper,total={6.1in,9in}]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{graphics}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,filecolor=black,urlcolor=black]{hyperref}
+\usepackage[authoryear,round]{natbib}
+\bibliographystyle{unsrtnat}
+
+<<include=FALSE>>=
+library(knitr)
+opts_chunk$set(fig.path='IWTomics-',concordance=TRUE,warning=TRUE,message=TRUE)
+options(width=66)
+@
+
+\title{Using \textsf{IWTomics} to detect genomic features that discriminate between different groups of regions.}
+\author{Marzia A Cremona\footnote{These authors contributed equally} \footnote{mac78@psu.edu} , Alessia Pini\footnotemark[1] , \\ Francesca Chiaromonte and Simone Vantini}
+\date{November 28, 2016}
+
+
+\begin{document}
+
+\maketitle
+
+
+
+\section{Introduction}
+\textsf{IWTomics} is a package to statistically evaluate differences in genomic features between groups of regions along the genome. Locations (within the regions) and scales at which these differences unfold need not be specified at the outset, and are in fact an output of the procedure. 
+In particular, the package implements an extended version of the Interval-Wise Testing (IWT) for functional data \citep{pini2015}, specifically designed to work with ``Omics'' data. \textsf{IWTomics} also includes a set of functions based on the package \texttt{GenomicRanges} to import and organize measurements of multiple genomic features in different regions, as well as a set of functions to create graphical representations of the features and of the test results. Importantly, genomic regions can have different length and different features can be measured at different resolutions. 
+
+In this vignette we present an example in which \textsf{IWTomics} is used to compare recombination hotspots in the genomic regions surrounding fixed ETns (elements of the Early Transposon family of active Endogenous Retroviruses in mouse) versus control regions. This data is part of a much larger dataset analyzed in \cite{campos2016}. The complete dataset comprises several genomic features, and was used to study integration and fixation preferences of different families of endogenous retroviruses in the mouse and human genomes (the software used in \cite{campos2016} was a beta version of this package  in which we implemented the Interval Testing Procedure of \cite{pini2016} in place of the Interval-Wise Testing employed here). 
+
+We also present the complete workflow and various options in \textsf{IWTomics} through some synthetic datasets that are provided within the package. 
+
+\subsection{Interval-Wise Testing (IWT)}
+\label{subsec:IWT}
+The IWT is an inferential procedure that tests for differences in the distributions of a genomic feature between two sets of regions (e.g. between case and control regions -- two sample test), or between a single set of regions and a reference curve (e.g. between case regions and a reference null measurement -- one sample test). The feature under study must be measured in windows of fixed size in each region (e.g. at a resolution of 1 bp, or over 1 kb windows), and these contiguous measurements are considered by the IWT as curves. The IWT is a Functional Data Analysis technique, hence it can directly deal with these curves. In particular, the IWT is able to assess whether there are differences in the distributions of the curves globally, and it also investigates local effects, imputing the statistically significant differences to specific locations along the regions (e.g. only in the central part of the regions).
+
+Since the IWT is based on permutation tests (non-parametric tests), it does not require any assumption on the statistical distribution of the data and it can be easily employed to study different types of ``Omics'' signals, from DNA conformation contents, to transcription data or chromatin modifications. Moreover, it can be used even if the sample sizes differ in the two groups under consideration, or if the sample sizes are small. Sample sizes affect the resolution of the empirical p-value which will not exceed $1/P$, where $P$ the total number of possible permutations leading to distinct values of the test statistics (see Subsection \ref{subsec:permutations}). For instance, in the two sample test between two independent populations of sizes $n_1$ and $n_2$, $P=\binom{n_1+n_2}{n_1}$.
+
+In the extended version implemented in \textsf{IWTomics}, the IWT is not only location-free but also scale-free. Indeed, it is able to investigate a range of different scales (from the finest one provided by the measurement resolution, to the coarsest one given by the region length), making it possible to assess the scale at which a feature displays its effect (see Section \ref{sec:scale} for details). Moreover, different test statistics can be employed (e.g. mean difference, variance ratio or quantile difference).
+
+\subsection{Installation and loading}
+\textsf{IWTomics} package is available at bioconductor.org and can be installed via \texttt{biocLite}, typing the following commands in the R console (an internet connection is needed)
+
+<<installation,eval=FALSE,size="small">>=
+source("http://www.bioconductor.org/biocLite.R")
+biocLite("IWTomics",dependencies=TRUE)
+@
+
+After the package is installed, it can be loaded into R workspace typing
+<<loading,eval=TRUE,results='hide',warning=FALSE,message=FALSE,size="small">>=
+library(IWTomics)
+@
+
+\subsection{A first example: recombination hotspots around fixed ETn}
+We illustrate use and output of \textsf{IWTomics} through a real data example from \cite{campos2016}  (the dataset is provided as part of the package). This data contains two groups of genomic regions, \texttt{ETn fixed} and \texttt{Control}. In each region we measure one genomic feature, the content of \texttt{Recombination hotspots}. This is how to load the data into R:
+<<ETn_dataset,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+data(ETn_example)
+ETn_example
+@
+
+\begin{figure}[!b]
+  \centering
+  \includegraphics[width=0.8\textwidth]{IWTomics-ETn_boxplot-1}
+  \caption{Plot of \texttt{Recombination hotspots} in \texttt{ETn fixed} regions (red) and \texttt{Control} regions (green).}
+  \label{ETn_boxplot}
+\end{figure}
+
+The region dataset \texttt{ETn fixed} comprises 1296 regions flanking fixed ETn elements (elements of the Early Transposon family elements of active Endogenous Retroviruses in mouse). These regions correspond to 32-kb flanking sequence upstream and 32-kb flanking sequence downstream of each fixed ETn element. The content of \texttt{Recombination hotspots} is measured at 1000 bp resolution in each region: the 64-kb length is divided into 64 1-kb and 64 consecutive measurements are produced, expressing the fraction of each 1-kb window covered by recombination hotspots. The goal is to understand whether the presence of fixed ETn elements in the genome is affected by recombination hotspots. To this end, we compare the regions in \texttt{ETn fixed} with control regions, defined as 64-kb regions that do not overlap with flanking sequences of ETn or of other families of Endogenous Retroviruses. The region dataset \texttt{Control} contains 1142 of such regions, for each of which we have again 64 consecutive measurements of \texttt{Recombination hotspots}. 
+
+Figure \ref{ETn_boxplot} shows a visual representation of the dataset obtained with the function \texttt{plot} in the following code: 
+<<ETn boxplot,eval=TRUE,echo=TRUE,fig.height=7,fig.width=10,label=ETn_boxplot,results='markup',fig.show='hide',size="small">>=
+plot(ETn_example,cex.main=2,cex.axis=1.2,cex.lab=1.2)
+@
+
+Figure \ref{ETn_boxplot} suggests that the average recombination hotspots content right around the locations of fixed ETns ($\pm$5 kb flanks) is higher than that in control regions. The function \texttt{IWTomicsTest}, the main function of the package \textsf{IWTomics}, allows us to test differences in a rigorous way, returning a p-value curve (one p-value for each 1-bp window) adjusted considering the whole 64-kb region, as shown in the next chunck of code. 
+
+<<ETn two samples test - mean,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+ETn_test=IWTomicsTest(ETn_example,
+                     id_region1='ETn_fixed',id_region2='Control')
+adjusted_pval(ETn_test)
+@
+
+Test results can be easily understood using the visual representation provided by the function \texttt{plotTest} and shown in Figure \ref{ETn_test_plot}. 
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.6\linewidth]{IWTomics-ETn_test_plot-1}
+  \caption{Plots of IWT results for \texttt{Recombination hotspots} in the comparisons \texttt{Etn fixed} vs \texttt{Control}.}
+  \label{ETn_test_plot}
+\end{figure}
+
+<<ETn test plot,eval=TRUE,echo=TRUE,fig.height=10,fig.width=8,label=ETn_test_plot,results='markup',fig.show='hide',size="small">>=
+plotTest(ETn_test)
+@
+
+In this figure, the top panel shows the adjusted p-value heatmap: the x axis represents locations, i.e. the 64 1-kb windows in the 64-kb region, while the y axis represents all possible scales used to adjust the p-value curve (from 1 window, no adjustment; to 64 windows, adjustment based on the entire region). The central panel is a plot of the adjusted p-values at the maximum scale (threshold at 64 windows; more details below and in Subsection \ref{max_scale}), and the gray area corresponds to significant adjusted p-values ($<0.05$). The bottom panel is a visual representation of the feature in the two groups of regions. The blue area in the adjusted p-value heatmap (top panel) shows that the difference between \texttt{Etn fixed} and \texttt{Control} is significant in the central part of the region, i.e. near the ETn's integration site. Notably, the results holds for broader flanks around the integration site at smaller scales - i.e. if we adjust each p-value based on fewer neighboring positions (the lower part of the heatmap shows a larger blue area). 
+
+If we focus on a smaller scale (e.g. setting the threshold at 10 windows, i.e 10 kb) and adjust the p-values considering only 10 neighboring positions, the central subregion where the difference is significant (p-value $<0.05$) is broader. This is shown in Figure \ref{ETn_test_plot_10kb_scale}, which has a larger the gray area in the central panel. This figure corresponds to Figure 3A in \cite{campos2016}. 
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.6\linewidth]{IWTomics-ETn_test_plot_10kb_scale-1}
+  \caption{Plots of IWT results for \texttt{Recombination hotspots} in the comparisons \texttt{Etn fixed} vs \texttt{Control}, with scale threshold 10 kb.}
+  \label{ETn_test_plot_10kb_scale}
+\end{figure}
+
+<<ETn test plot scale 10kb,eval=TRUE,echo=TRUE,fig.height=10,fig.width=8,label=ETn_test_plot_10kb_scale,results='markup',fig.show='hide',size="small">>=
+adjusted_pval(ETn_test,scale_threshold=10)
+plotTest(ETn_test,scale_threshold=10)
+@
+
+From these results we can conclude that recombination hotspots show significant differences at locations near the integration site of fixed ETn; in particular, they are enriched on average. This effect is stronger at small scales, up to 10-kb. 
+
+\subsection{Regions, features and measurement resolution}
+\textsf{IWTomics} can be easily employed to compare several genomic features of different biological nature, in multiple pairs of region groups. For example, in addition to the flanking regions of fixed ETn and control regions in the mouse genome, the complete dataset in \cite{campos2016} contains flanking regions of mouse polymorphic ETn, fixed IAP (Intracisternal A Particle, another family of active Endogenous Retroviruses) and polymorphic IAP. Moreover, it also contains three groups of regions in the human genome: the flanking regions of fixed HERV-K (a family of Human Endogenous Retroviruses), those of \textit{in vitro} HERV-K, and control regions. Around 40 genomic features were considered for each region in each group, and compared between different groups. These features reflected DNA conformation, DNA sequence, recombination, replication, gene regulation and expression, and selection. Overall, the dataset allowed us an in-depth investigation of the genomic landscapes characterizing the families of Endogenous Retroviruses, and to separate fixation from integration preferences. The study demostrated the flexibility and broad applicability of \textsf{IWTomics}. Indeed, different types of ``Omics'' data can be employed as features in the test. However, nature and resolution of measurements should be carefully chosen, because the IWT is designed to work with continuous measurements. ``Omics'' data that are discrete in nature should be considered at medium-high resolution. For example,  consider recombination hotspots, exons or microsatellites: we can measure their content or count in windows of various sizes (e.g., 1-kb or 10-kb), but at very fine resolution (very small windows) these will reduce to presence or absence (1 or 0 measurement). In contrast, ``Omics'' data such as ChIP-seq signals maintain good ranges also at very fine resolution. Genomic regions can also be defined in different ways, to address different biological questions. For instance, they can be flanking regions of some element of interest  as in \cite{campos2016}, regions centered around Transcription Start Sites (TSS) of genes, regions annotated as functional or under selection through genome-wide screens, regions occupied by special DNA structures (e.g. G-quadruplexes), etc.  Notably, in some applications the regions will all have the same length and a natural alignment to each other (e.g., the insertion site of an ETn or the TSS). In other applications, lengths may differ and/or an alignment choice selected (see Section \ref{import} for more details).
+
+\section{Importing data}
+\label{import}
+The first step consists in importing the datasets (regions and features) that we wish to study in an object of class \texttt{"IWTomicsData"}, using the constructor \texttt{IWTomicsData}. 
+
+Each region dataset can be provided as a BED file or as a table with columns \texttt{chr  start  end} (extra columns present in the input file are ignored). Importantly, \textsf{IWTomics} can deal with regions of different lengths. 
+\begin{verbatim}
+chr2  49960150  50060150
+chr2  55912445  56012445
+...
+\end{verbatim}
+
+Here we consider four different region datasets each containing regions of 50 kb. Three comprise different types of elements (\texttt{Elements 1}, \texttt{Elements 2} and \texttt{Elements 3}) and one comprises control regions (\texttt{Control}).
+<<datasets,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+examples_path <- system.file("extdata",package="IWTomics")
+datasets=read.table(file.path(examples_path,"datasets.txt"),
+                    sep="\t",header=TRUE,stringsAsFactors=FALSE)
+datasets
+@
+
+Similarly, we need to provide the feature measurements corresponding to each region dataset. Each feature must be measured in windows of a fixed size inside all the regions (missing values are indicated as \texttt{NA}). Feature measurements can be provided as a BED file with four columns \texttt{chr  start  end  value} and one row for each window 
+\begin{verbatim}
+chr2	49960150	49962150	0.942623929894372
+chr2	49962150	49964150	0.7816422042578235
+...
+\end{verbatim}
+
+Here we consider two different genomic features (\texttt{Feature 1} and \texttt{Feature 2}), with measurements at 2 kb resolution.
+<<feature datasets BED,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+features_datasetsBED=
+    read.table(file.path(examples_path,"features_datasetsBED.txt"),
+               sep="\t",header=TRUE,stringsAsFactors=FALSE)
+features_datasetsBED
+@
+
+When importing data, we should specify how the regions should be aligned with respect to each other though the argument \texttt{alignment}. Possible choices are \texttt{left}, \texttt{right} and \texttt{center} for aligning the regions on their starting, ending and central positions, respectively. An additional option, \texttt{scale}, scales all regions to the same length. If the length is the same for all regions, all choices are equivalent for testing purposes, but subsequent graphical visualizations differ. In this particular example we align the regions on their central position. 
+
+When importing the feature measurements from BED files, \texttt{IWTomicsData} check for consistency between the region datasets and the feature measurements before aligning the measurements according to the argument \texttt{alignment}. This reduces the chances of using mismatched data, but it can be time consuming.
+<<import features from BED,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+startBED=proc.time()
+regionsFeatures=IWTomicsData(datasets$regionFile,
+    features_datasetsBED[,3:6],alignment='center',
+    id_regions=datasets$id,name_regions=datasets$name,
+    id_features=features_datasetsBED$id,
+    name_features=features_datasetsBED$name,
+    path=file.path(examples_path,'files'))
+endBED=proc.time()
+endBED-startBED
+@
+
+Another way to import feature measurements is from a table file with the first three columns \texttt{chr  start  end} corresponding to the different genomic regions, followed on the same row by all the measurements in fixed-size windows. 
+\begin{verbatim}
+chr2  49960150  50060150  0.942623929894372  0.781642204257823  
+  0.892165843353036  ...  ...  1.20635198854438
+chr2  55912445  56012445  0.871916848756875  0.997520895351788  
+  1.16194557122965  ...  ...  0.960164147842107
+...
+\end{verbatim}
+
+<<feature datasets table,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+features_datasetsTable=
+    read.table(file.path(examples_path,"features_datasetsTable.txt"),
+               sep="\t",header=TRUE,stringsAsFactors=FALSE)
+features_datasetsTable
+@
+
+When importing the measurements from table files, the constructor \texttt{IWTomicsData} needs to perform fewer controls and is therefore faster.
+<<import features from table,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+startTable=proc.time()
+regionsFeatures=IWTomicsData(datasets$regionFile,
+    features_datasetsTable[,3:6],alignment='center',
+    id_regions=datasets$id,name_regions=datasets$name,
+    id_features=features_datasetsBED$id,
+    name_features=features_datasetsBED$name,
+    path=file.path(examples_path,'files'))
+endTable=proc.time()
+endTable-startTable
+@
+
+\texttt{IWtomicsData} returns an object of S4 class \texttt{"IWTomicsData"}. This object is a container that stores a collection of aligned genomic region datasets, and their associated feature measurements. In the next chunk of code, we show the content of the object, and how to subset only the measurements of \texttt{Feature 1} corresponding to the region datasets \texttt{Elements 1} and \texttt{Control} using the subsetting method \texttt{[}.
+
+<<IWTomicsData object,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+regionsFeatures
+regionsFeatures_subset=regionsFeatures[c('elem1','control'),'ftr1']
+regionsFeatures_subset
+@
+
+An alternative way to prepare data for \textsf{IWTomics} is to directly create an object of class \texttt{"IWTomicsData"} from genomic region datasets and feature measurements, using the alternative constructor function \texttt{IWTomicsData}. The mandatory fields are a \texttt{"GRangesList"} object with genomic locations corresponding the different region datasets, their \texttt{alignment} and the features measurements, aligned and arranged in matrices. Methods to combine \texttt{"IWTomicsData"} objects are also implemented in the package (\texttt{c}, \texttt{merge}, \texttt{rbind} and \texttt{cbind}).
+
+
+\section{Visualizing feature measurements}
+Before proceeding with the test, it can be very useful to visually inspect the data. The \texttt{plot} method for \texttt{"IWTomicsData"} class provides multiple types of visualizations. 
+
+A scatterplot of the measurements corresponding to different features reveals pairwise correlations among them (Figure \ref{scatterplot}). 
+
+<<scatterplot,eval=TRUE,echo=TRUE,fig.height=5,fig.width=5,label=scatterplot,results='markup',fig.show='hide',size="small">>=
+plot(regionsFeatures,type='pairs')
+@
+
+When datasets are large and many measurements are present, a smoothed scatterplot may represent the data distribution more effectively (Figure \ref{scatterplot_smooth}).
+
+<<scatterplot smooth,eval=TRUE,echo=TRUE,fig.height=5,fig.width=5,label=scatterplot_smooth,results='markup',fig.show='hide',size="small">>=
+plot(regionsFeatures,type='pairsSmooth',col='violet')
+@
+
+The plot function allows the user to plot only a subset of region datasets (argument \texttt{id\_regions\_subset}) and of genomic features (\texttt{id\_features\_subset}). In addition, it is possible to plot only a subsample of \texttt{N\_regions} regions randomly selected from each region dataset, and the logarithm of the measurements can be plotted instead of the raw values (arguments \texttt{log\_scale} and \texttt{log\_shift}).
+
+\begin{figure}[!p]
+  \centering
+  \begin{subfigure}[t]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-scatterplot-1}
+    \caption{Scatterplot, with colors indicating different region datasets.}
+    \label{scatterplot}
+  \end{subfigure}
+  \begin{subfigure}[t]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-scatterplot_smooth-1}
+    \caption{Smoothed scatterplot.}
+    \label{scatterplot_smooth}
+  \end{subfigure}
+  \caption{Scatterplot of the measurements for \texttt{Feature 1} and \texttt{Feature 2}.}
+\end{figure}
+
+\begin{figure}[!p]
+  \centering
+  \includegraphics[width=0.8\textwidth]{IWTomics-curves-1}
+  \caption{Plot of all the curves for \texttt{Feature 1}. The measurements corresponding to different region datasets are represented with different colors, with the mean curves as solid lines. At the bottom of the plot, the heatmap shows the sample size corresponding to each position and each region dataset.}
+  \label{curves}
+\end{figure}
+
+Another useful graphical representation of the data is the plot of the aligned measurement curves. This plot shows the level of roughness in the data and/or in the average and quantile curves, thus suggesting the need for a smoothing step (see Section \ref{smoothing}). Also in this case the user can decide which regions and features should be plotted, the number of regions to be shown and whether to plot logarithms of the measurements. As an example, a \texttt{curve} plot of \texttt{Feature 1} measurements in all the region datasets considered is generated by the next chunk of code and shown in Figure \ref{curves}. In addition to the measurements, the mean curves can be plotted (\texttt{average=TRUE}) and the sample sizes in each position can be shown for each region dataset. When the data under study contain missing measurements (\texttt{NA}) or regions of different lengths, information regarding the pointwise sample sizes is essential to evaluate the power of the IWT in different portions of the curves. In the following example individual curves are quite noisy, while the average curves appear to be rather smooth.
+
+<<curves,eval=TRUE,echo=TRUE,fig.height=7,fig.width=10,label=curves,results='markup',fig.show='hide',size="small">>=
+plot(regionsFeatures,type='curves',
+     N_regions=lengthRegions(regionsFeatures),
+     id_features_subset='ftr1',cex.main=2,cex.axis=1.2,cex.lab=1.2)
+@
+
+\begin{figure}[!b]
+  \centering
+  \includegraphics[width=0.8\textwidth]{IWTomics-boxplot-1}
+  \caption{Pointwise boxplot of all the curves for \texttt{Feature 2}. The pointwise boxplots corresponding to different region datasets are drawn with different colors, with the mean curves as solid lines and the quartile curves in dashed lines over shaded areas. At the bottom of the plot, the heatmap shows the sample size corresponding to each position and each region dataset.}
+  \label{boxplot}
+\end{figure}
+
+Finally, a plot of pointwise quantile curves can suggest which is the most appropriate test statistics to be employed. We refer to this plot as pointwise boxplot, to intuitively indicate that it summarizes distributions in a schematic way, as the classical boxplot does. As an example, the next chunk of code produces the plot in Figure \ref{boxplot} for \texttt{Feature 2} in all the region datasets under consideration. The default plot shows the mean curves in solid lines and the quartile curves (corresponding to 25\%, 50\% and 75\% of the data in each position) in dashed lines over shaded areas.
+
+<<boxplot,eval=TRUE,echo=TRUE,fig.height=7,fig.width=10,label=boxplot,results='markup',fig.show='hide',size="small">>=
+plot(regionsFeatures,type='boxplot',
+     id_features_subset='ftr2',cex.main=2,cex.axis=1.2,cex.lab=1.2)
+@
+
+We note that, in the example, a test statistic based on the mean or the median difference effectively captures differences in the distributions of \texttt{Feature 2} between \texttt{Elements 1} and \texttt{Controls}, as well as between \texttt{Elements 3} and \texttt{Controls}. However, these test statistics are not effective in capturing the difference between \texttt{Element 2} and \texttt{Controls}. In this case the difference concerns variability instead of the mean values, hence test statistics based on the variance ratio or on multiple quantile curves are probably more appropriate. 
+
+\section{Testing for differences between curve distributions}
+The main function of \textsf{IWTomics} package is \texttt{IWTomicsTest}, which implements the Interval-Wise Testing for ``Omics'' data and allows the user to detect genomic features that are relevant in discriminating different groups of regions. The main output of this function is an adjusted p-value curve for each test performed, consisting of an adjusted p-value for each fixed-size window corresponding to the provided resolution (i.e. 2 kb in the example). The correction of each p-value is done considering all the intervals containing the window, with length up to the maximum scale considered. Details about the statistical methodology employed here can be found in \cite{pini2015}. 
+
+The function \texttt{IWTomicsTest} takes as input an \texttt{"IWTomicsData"} object and can handle, in a single call, several tests between different region datasets (both one sample and two samples tests) and multiple genomic features. In particular, the genomic features that we wish to test are provided by the vector \texttt{id\_features\_subset}, while the vectors \texttt{id\_region1} and \texttt{id\_region2}  contain the identifiers of the region datasets to be compared. To perform a one sample test, the empty string should be inserted in \texttt{id\_region2}. Another essential argument of function \texttt{IWTomicsTest} is the test statistics to be used (\texttt{statistics}). Possible test statistics are \texttt{mean} (default, based on the difference between the mean curves), \texttt{median} (based on the difference between the median curves), \texttt{variance} (based on the ratio between the variance curves) and \texttt{quantile} (based on the difference between quantile curves). When the \texttt{quantile} statistic is selected, the desired probabilities are provided through the \texttt{probs} argument. If multiple probabilities are given, the test statistic is the sum of the quantile statistics corresponding to the different probabilities. This option is more time consuming, but it can usually capture subtler differences since it considers the distributions more comprehensively. 
+
+In the next chunk of code we illustrate the use of the one sample test. The \texttt{mean} statistic is employed to assess whether the center of symmetry of \texttt{Feature 1} is equal to 0 and whether the center of symmetry of \texttt{Feature 2} is equal to 5 in \texttt{Controls}. As a result of the test we obtain an adjusted p-value curve, i.e. an adjusted p-value for each window in the region dataset, for each test performed. In particular, the function \texttt{IWTomicsTest} returns an \texttt{"IWTomicsData"} object with the test input and results in the slot \texttt{test}. The adjusted p-values of the different tests can be accessed with the method \texttt{adjusted\_pval}.
+
+<<one sample test - mean,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+result1=IWTomicsTest(regionsFeatures,mu=c(0,5),
+                     id_region1='control',id_region2='',
+                     id_features_subset=c('ftr1','ftr2'))
+result1
+adjusted_pval(result1)
+@
+
+The results indicate that the null hypothesis that the center of symmetry of \texttt{Feature 1} is equal to 0 should be rejected at the usual level of confidence of $5\%$ in the whole region, while we do not have enough evidence to conclude that the center of symmetry of \texttt{Feature 2} is not 5. 
+
+A more common problem is to detect differences in feature distributions between two different group of regions, i.e. to perform a two sample test. In the next chunk of code we illustrate the use of the two sample test (\texttt{mean} statistic) for differences in the curve distributions of \texttt{Feature 1} and \texttt{Feature 2} in the comparisons \texttt{Elements 1} vs. \texttt{Controls}, \texttt{Elements 2} vs. \texttt{Controls} and \texttt{Elements 3} vs. \texttt{Controls}.
+
+<<two samples test - mean,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+result2_mean=IWTomicsTest(regionsFeatures,
+                          id_region1=c('elem1','elem2','elem3'),
+                          id_region2=c('control','control','control'))
+result2_mean
+adjusted_pval(result2_mean)
+@
+
+The adjusted p-value curves suggest that we cannot reject the null hypothesis that \texttt{Feature 1} has the same distributions in \texttt{Elements 1} and \texttt{Controls}, and that its distribution in \texttt{Elements 2} differs from the one in \texttt{Controls}, across the whole region. On the contrary, \texttt{Feature 1} in \texttt{Elements 3} has a significantly different distribution than in \texttt{Controls}, but this difference can be imputed to a specific portion of the region; the 20 windows corresponding to the 40 kb around the center of the region. The adjusted p-values also suggest that \texttt{Feature 2} is significant in distinguishing between \texttt{Elements 1} and \texttt{Controls} and not significant in distinguishing between \texttt{Elements 2} and \texttt{Controls}. Finally, \texttt{Elements 3} appears to differ from \texttt{Controls} in terms of \texttt{Feature 2} exclusively in the right part of the regions. 
+
+The next example shows how to perform the same two sample test on \texttt{Feature 1}, using the \texttt{quantile} test statistic with multiple probabilities (in particular, using first and third quartiles). The same conclusions can be drawn. 
+
+<<two samples test - multiple quantiles,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+result2_quantiles=IWTomicsTest(regionsFeatures,
+                               id_region1=c('elem1','elem2','elem3'),
+                               id_region2=c('control','control','control'),
+                               id_features_subset='ftr1',
+                               statistics='quantile',probs=c(0.25,0.75))
+result2_quantiles
+adjusted_pval(result2_quantiles)
+@
+
+
+\subsection{Maximum scale considered}
+\label{max_scale}
+The argument \texttt{max\_scale} can be used to set the maximum scale at which the Interval-Wise Testing is performed. That is, \texttt{max\_scale} represents the maximum interval length used to adjust the p-values, i.e. the maximum number of consecutive windows to be employed. As default, \texttt{IWTomicsTest} sets the maximum scale to the length of the whole region under consideration. In the examples above, the default \texttt{max\_scale} is 50 (since all features are measured in 50 consecutive windows in each region), and it can be set to each integer from 1 (no adjustment) to 50. If data comprises regions of different length, the dafault is the length of the union of all the regions, i.e. the length of the largest region on which the test can be performed. The Interval-Wise Testing is performed for all scales ranging from the window length (this is the measurement resolution, hence the smallest scale possible -- no p-value correction) to the region length (adjusting the p-values in order to control the interval-wise error rate over all intervals up to the whole region). 
+
+
+\subsection{Number of permutations}
+\label{subsec:permutations}
+The desired number of random permutations (the number of iterations of the Monte Carlo algorithm) employed to obtain the empirical p-value curves is provided to the function \texttt{IWTomicsTest} through the argument \texttt{B}. When \texttt{B} is greater than the total number $P$ of permutations leading to different values of the test statistics, exact permutational p-values are computed. 
+
+It should be noted that the resolution of the computed p-values depends both on \texttt{B} and $P$. If all permutations are explored, the resolution of the exact p-values is $1/P$. If a Monte Carlo algorithm is employed, an approximated p-value with resolution $1/\texttt{B}$ is computed. As a consequence, a large number of permutations leads to more accurate results and an approximation of the p-value curves closer to the theoretical ones. However, performing a test with a large number of permutations can be very time consuming, depending on the chosen test statistics and on the sample sizes. 
+
+
+\subsection{Reproducibility}
+Since the function \texttt{IWTomicsTest} uses random permutations to compute the empirical p-value curves, it is necessary to use \texttt{set.seed} to create a reproducible code that returns exactly the same p-value curves every time it is run. 
+
+<<reproducibility,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+set.seed(16)
+result_rep1=IWTomicsTest(regionsFeatures,
+                         id_region1='elem1',id_region2='control',
+                         id_features_subset='ftr1')
+adjusted_pval(result_rep1)
+
+set.seed(16)
+result_rep2=IWTomicsTest(regionsFeatures,
+                         id_region1='elem1',id_region2='control',
+                         id_features_subset='ftr1')
+adjusted_pval(result_rep2)
+
+identical(result_rep1,result_rep2)
+@
+
+
+\subsection{Not fully computable p-value curves}
+\label{subsec:not_fully_computable}
+The package \textsf{IWTomics} is designed to work with genomic regions of different length as well as with missing measurements in some of the windows (indicated with \texttt{NA}). On one hand, this property allows the user to work directly with genomic annotations of different sizes (aligned according to a landmark or scaled to the same length) without needing to artificially cut them or to insert them in fixed size regions. On the other hand, this can lead to the presence of very few measurements in some locations or portions of the regions under consideration (e.g., at the boundaries of the longest regions). It is important to notice that the IWT has low power in detecting differences at these locations with small sample sizes. In addition, p-value curves may not be fully computable if, in a particular portion of the regions, the number of \texttt{NA} measurements exceeds the sample size of one of the two groups. Indeed, in this case there exist some permutations of the observations that show measurements exclusively for one of the two groups, and all \texttt{NA} for the other group. The function \texttt{IWTomicsTest} computes the p-values corresponding to these locations considering only the permutations that retain measurements in both groups, and generates a warning message. 
+
+This issue is demonstrated in the following example, using the synthetic region dataset \texttt{regionsFeatures\_center} provided with the package. The region dataset \texttt{Elements 1} has regions of different lengths, and their maximum length is lower than the maximum length of \texttt{Controls} regions. Moreover, \texttt{NA} are present in \texttt{Feature 1} measurements in the last windows of several \texttt{Elements 1} regions.
+
+<<regionsFeatures_center,eval=TRUE,echo=TRUE,fig.height=7,fig.width=10,label=boxplot_diff_length,results='markup',fig.show='hide',size="small">>=
+data(regionsFeatures_center)
+range(width(regions(regionsFeatures_center)))
+plot_data=plot(regionsFeatures_center,type='boxplot',
+               id_regions_subset=c('elem1','control'),
+               id_features_subset='ftr1',size=TRUE)
+plot_data$features_position_size
+@
+
+Looking at the pointwise sample sizes (Figure \ref{boxplot_diff_length}), we can observe that the IWT cannot be performed in the first window (no measurements present for \texttt{Element 1}). In the last window the IWT can be performed but the p-value will be computed using only a subset of the possible permutations, hence a warning will be generated.
+
+<<not fully computable p-value curves,eval=TRUE,echo=TRUE,results='markup',warnings=TRUE,size="small">>=
+result_warning=IWTomicsTest(regionsFeatures_center,
+                            id_region1='elem1',id_region2='control',
+                            id_features_subset='ftr1')
+adjusted_pval(result_warning)
+@
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{IWTomics-boxplot_diff_length-1}
+  \caption{Pointwise boxplot of the curves corresponding to \texttt{Element 1} and \texttt{Control} for \texttt{Feature 1}. The heatmap at the bottom shows that the sample size varies in the different positions.}
+  \label{boxplot_diff_length}
+\end{figure}
+
+\section{Visualizing test results}
+\label{sec:visualizing_test_results}
+The package \textsf{IWTomics} offers two different ways of representing IWT results graphically. The \texttt{plotTest} function creates detailed plots of the IWT results. For each test performed, or possibly for a subset of the feature tested (argument \texttt{id\_features\_subset}), it produces:
+\begin{itemize}
+\item a heatmap of the adjusted p-value curves at each scale, from the measurement resolution to the maximum scale considered;
+\item a plot of the adjusted p-value curve at the chosen scale threshold (provided by \texttt{scale\_threshold}). Significant windows (corrected p-values $<\alpha$) are highlighted in gray;
+\item a plot of the feature measurements in the region dataset(s) tested. This can be either a plot of the aligned measurement curves (\texttt{type="curves"}) or a pointwise boxplot (\texttt{type="boxplot"}, default), with the options provided by the \texttt{plot} method of \texttt{IWTomicsData} class, for example the possibility to plot the pointwise sample size, or the average curve.
+\end{itemize}
+These plots are useful to visualize and interpret IWT results and select the relevant scale (see Section \ref{sec:scale}). In the next chunk of code we show how to produce plots of IWT results (\texttt{mean} statistic) for \texttt{Feature 1} in the comparisons \texttt{Elements 1} vs. \texttt{Controls}, \texttt{Elements 2} vs. \texttt{Controls} and \texttt{Elements 3} vs. \texttt{Controls}. The plots are shown in Figure \ref{detailed_plot}. 
+
+\begin{figure}[!b]
+  \centering
+  \begin{subfigure}[b]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-detailed_plot-1}
+    \caption{}
+    \label{detailed_plot_1}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-detailed_plot-2}
+    \caption{}
+    \label{detailed_plot_2}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-detailed_plot-3}
+    \caption{}
+    \label{detailed_plot_3}
+  \end{subfigure}
+  \caption{Plots of IWT results for \texttt{Feature 1} in the comparisons: (\subref{detailed_plot_1}) \texttt{Elements 1} vs \texttt{Controls}, (\subref{detailed_plot_2}) \texttt{Elements 2} vs \texttt{Controls} and (\subref{detailed_plot_3}) \texttt{Elements 3} vs \texttt{Controls}.}
+  \label{detailed_plot}
+\end{figure}
+
+<<two samples test - mean - detailed plot,eval=TRUE,echo=TRUE,fig.height=10,fig.width=8,label=detailed_plot,results='markup',fig.show='hide',size="small">>=
+plotTest(result2_mean,alpha=0.05,id_features_subset='ftr1')
+@
+
+An additional way to visualize results of the \textsf{IWTomics} package is provided by the function \texttt{plotSummary}. This creates a graphical summary of the test results, grouped by the region datasets tested (\texttt{groupby="test"}) or by the feature tested (\texttt{groupby="feature"}). In particular, it creates a heatmap of the adjusted p-value curves at the chosen thresholds (argument \texttt{scale\_threshold}) for each group of tests. When the grouping is \texttt{"test"} one plot is drawn for each comparison the different raws in the heatmap correspond to the different features. On the contrary, when the tests are grouped by \texttt{"feature"} one plot is drawn for each feature and the different raws represent different comparisons. Color intensity is proportional to $-log(\text{p-value})$, i.e. more intense colors correspond to lower p-values. Red means that the test statistics is higher in the first dataset tested than in the second one (or that it is positive in one sample test), while blue means that it is lower in the first dataset tested than in the second one (or it is negative in one sample test). Finally, white means that the p-value in that window is not significant, according to the selected threshold $\alpha$ (p-value $\geq \alpha$). 
+
+The function \texttt{plotSummary} uses a modified version of \texttt{pheatmap} package functions, hence it borrows from this package some of the arguments. In particular, \texttt{gaps\_features} and \texttt{gaps\_tests} allow the user to insert gaps in the heatmap between features or tests when \texttt{groupby} is equal to \texttt{"test"} or \texttt{"feature"}, respectively, while \texttt{cellwidth} and \texttt{cellheight} provide the individual cell width and hight, and \texttt{filenames} correspond to the file paths where to save the produced plots. In addition, other \textsf{IWTomics}-specific arguments are available, in order to plot only the raw corresponding to significant p-values (\texttt{only\_significant}) or to plot only a subset of tests or features (arguments \texttt{test} and \texttt{id\_features\_subset}). 
+
+In the following example we show how to create a summary plot of IWT results (\texttt{mean} statistic) in the comparisons \texttt{Elements 1} vs. \texttt{Controls}, \texttt{Elements 2} vs. \texttt{Controls} and \texttt{Elements 3} vs. \texttt{Controls}, grouped by feature (see Figure \ref{summary_plot_2_feature}). 
+
+<<two samples test - mean - summary plot feature,eval=TRUE,echo=TRUE,fig.height=2.5,fig.width=12,label=summary_plot_2_feature,results='markup',fig.show='hide',size="small">>=
+plotSummary(result2_mean,alpha=0.05,groupby='feature',align_lab='Center')
+@
+
+\begin{figure}[!p]
+  \centering
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-summary_plot_2_feature-1}
+    \caption{}
+    \label{summary_plot_2_feature1}
+  \end{subfigure} \\
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-summary_plot_2_feature-2}
+    \caption{}
+    \label{summary_plot_2_feature2}
+  \end{subfigure}
+  \caption{Summary plot of IWT results in the comparisons \texttt{Elements 1} vs \texttt{Controls}, \texttt{Elements 2} vs \texttt{Controls} and \texttt{Elements 3} vs \texttt{Controls}, grouped by (\subref{summary_plot_2_feature1}) \texttt{Feature 1} and (\subref{summary_plot_2_feature2}) \texttt{Feature 2}.}
+  \label{summary_plot_2_feature}
+\end{figure}
+
+\begin{figure}[!p]
+  \centering
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-summary_plot_1_feature-1}
+    \caption{}
+    \label{summary_plot_1_feature1}
+  \end{subfigure} \\
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-summary_plot_1_feature-2}
+    \caption{}
+    \label{summary_plot_1_feature2}
+  \end{subfigure}
+  \caption{Summary plots of IWT results about the center of symmetry of the distributions of the different region datasets being equal to 1, grouped by (\subref{summary_plot_1_feature1}) \texttt{Feature 1} and (\subref{summary_plot_1_feature2}) \texttt{Feature 2}.}
+  \label{summary_plot_1_feature}
+\end{figure}
+
+The next chunk of code and Figure \ref{summary_plot_1_feature} show an example of summary plot for one sample IWT results, grouped by feature. In particular, for each feature we are testing whether its center of symmetry is equal to 1, in \texttt{Elements 1}, \texttt{Elements 2}, \texttt{Elements 3} and \texttt{Controls}.
+
+<<one samples test - mean - summary plot feature,eval=TRUE,echo=TRUE,fig.height=2.5,fig.width=12,label=summary_plot_1_feature,results='markup',fig.show='hide',size="small">>=
+result1_mu1=IWTomicsTest(regionsFeatures,mu=1,
+                         id_region1=c('elem1','elem2','elem3','control'))
+plotSummary(result1_mu1,alpha=0.05,groupby='feature',align_lab='Center')
+@
+
+We can conclude that \texttt{Feature 2} has a center of symmetry different from 1 in all region datasets (Figure \ref{summary_plot_1_feature}(\subref{summary_plot_1_feature2})), while \texttt{Feature 1} has a center of symmetry different from 1 in \texttt{Elements 2} and in the central part of \texttt{Elements 1} regions. The corresponding plots grouped by location are shown in Figure \ref{summary_plot_1_location}. 
+
+<<one samples test - mean - summary plot location,eval=TRUE,echo=TRUE,fig.height=2,fig.width=12,label=summary_plot_1_location,results='markup',fig.show='hide',size="small">>=
+plotSummary(result1_mu1,alpha=0.05,groupby='test',align_lab='Center')
+@
+
+Finally, the next chunk of code generates a summary plot (Figure \ref{summary_plot_many_feature}), grouped by feature, for a more complicated set of 10 tests including both two samples and one sample tests (with \texttt{mu=0}) about \texttt{Feature 1}. Only significant tests are shown in the heatmap, and gaps between tests are added to separate the different types of tests.
+
+<<many tests - mean - summary plot feature,eval=TRUE,echo=TRUE,fig.height=4,fig.width=12,label=summary_plot_many_feature,results='markup',fig.show='hide',size="small">>=
+result_many=IWTomicsTest(regionsFeatures,
+                         id_region1=c('elem1','elem2','elem3',
+                                      'elem1','elem1','elem2',
+                                      'elem1','elem2','elem3','control'),
+                         id_region2=c(rep('control',3),
+                                      'elem2','elem3','elem3',
+                                      rep('',4)),
+                         id_features_subset='ftr1')
+plotSummary(result_many,alpha=0.05,groupby='feature',
+            align_lab='Center',gaps_tests=c(3,6),
+            only_significant=TRUE)
+@
+
+\begin{figure}[!p]
+  \centering
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-summary_plot_1_location-1}
+    \caption{}
+    \label{summary_plot_1_location1}
+  \end{subfigure} \\
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-summary_plot_1_location-2}
+    \caption{}
+    \label{summary_plot_1_location2}
+  \end{subfigure} \\
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-summary_plot_1_location-3}
+    \caption{}
+    \label{summary_plot_1_location3}
+  \end{subfigure} \\
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{IWTomics-summary_plot_1_location-4}
+    \caption{}
+    \label{summary_plot_1_location4}
+  \end{subfigure}
+  \caption{Summary plots of IWT results about the center of symmetry of the distributions of the different region datasets being equal to 1, grouped by the region datasets (\subref{summary_plot_1_location1}) \texttt{Elements 1}, (\subref{summary_plot_1_location2}) \texttt{Elements 2}, (\subref{summary_plot_1_location3}) \texttt{Elements 3} and (\subref{summary_plot_1_location4}) \texttt{Controls}.}
+  \label{summary_plot_1_location}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=\linewidth]{IWTomics-summary_plot_many_feature-1}
+  \caption{Summary plot of IWT results about a set of 10 tests on \texttt{Feature 1}.}
+  \label{summary_plot_many_feature}
+\end{figure}
+
+
+\section{Scaling regions and smoothing curves}
+\label{smoothing}
+When the genomic regions have different lengths and the \texttt{"scale"} alignment is considered, the Interval-Wise Testing cannot be applied directly. Indeed, the function \texttt{IWTomicsTest} requires that all the curves considered are evaluated on the same grid (possibly with some \texttt{NA}s) and this is not the case for scaled regions of different lengths. The \texttt{smooth} function for \texttt{"IWTomicsData"} objects provided by \textsf{IWTomics} can be used to scale regions and to obtain measurements on the same grid. This function employs a smoothing technique to construct a functional object (a curve) starting from the discrete measurements, and then evaluates the smoothed curves on a grid (the same grid for all the curves in a dataset). Possible types of smoothing (argument \texttt{type}) are local polynomials (\texttt{"locpoly"}), Nadaraya-Watson kernel smoothing with Gaussian kernel (\texttt{"kernel"}) and regression b-splines (\texttt{"splines"}, computational expensive when regions have different length and/or gaps). Smoothing parameters can be chosen through the arguments \texttt{bandwidth}, \texttt{degree} and \texttt{dist\_knots}. The number of equally-spaced grid points over which the smoothed curves should be evaluated is supplied by the argument \texttt{scale\_grid}, with default choice being the maximum number of measurements of the original datasets. 
+
+In the following example, we consider the dataset \texttt{regionsFeatures\_scale} provided with the package, whose regions have different lengths and contain gaps (\texttt{NA} measurements). The goal is to perform a two sample test to compare the distribution of \texttt{Feature 1} in \texttt{Element 1} vs. \texttt{Control}, \texttt{Element 2} vs. \texttt{Control} and \texttt{Element 3} vs. \texttt{Control}. The \texttt{Feature 1} curves are shown in Figure \ref{curves_scale}. Note that the pointwise sample sizes and the average cuves are not shown in this figure, because of the different grids over which the scaled curves are evaluated. 
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=0.95\textwidth]{IWTomics-curves_scale-1}
+  \caption{Plot of all the scaled curves for \texttt{Feature 1}.}
+  \label{curves_scale}
+\end{figure}
+
+<<curve alignment scale,eval=TRUE,echo=TRUE,fig.height=5,fig.width=10,label=curves_scale,results='markup',fig.show='hide',size="small">>=
+data(regionsFeatures_scale)
+lengthFeatures(regionsFeatures_scale[,'ftr1'])
+features(regionsFeatures_scale)[['ftr1']][['elem1']][,1]
+plot(regionsFeatures_scale,type='curves',
+     N_regions=lengthRegions(regionsFeatures_scale),
+     id_features_subset='ftr1')
+@
+
+If we try to run the IWT through the function \texttt{IWTomicsTest} we get an error because the regions have different lengths, hence the scaled curves are evaluated on different grids. To obtain measurements on the same grid we employ the function \texttt{smooth} and smooth all the curves with local polynomials, with kernel bandwith of 5 windows and polynomials of degree 3 (default options). The smoothed curves are evaluated on a grid of 50 equally-spaced points (the maximum number of points in the original measurements, default option). Figure \ref{curves_scale_same_grid} shows the smoothed curves. Since the grid is now the same for all regions, the pointwise sample sizes and the mean curves are shown. Note that by applying the function \texttt{smooth} we implicitly filled all gaps in the curves.
+
+\begin{figure}[!b]
+  \centering
+  \includegraphics[width=0.95\textwidth]{IWTomics-curves_scale_same_grid-1}
+  \caption{Plot of all the scaled curves for \texttt{Feature 1}, after obtaining measurements on the same grid with the function \texttt{smooth.IWTomics}.}
+  \label{curves_scale_same_grid}
+\end{figure}
+
+<<curve alignment scale - measurements on the same grid,eval=TRUE,echo=TRUE,fig.height=7,fig.width=10,label=curves_scale_same_grid,results='markup',fig.show='hide',size="small">>=
+regionsFeatures_scale_smooth=smooth(regionsFeatures_scale,type='locpoly')
+lengthFeatures(regionsFeatures_scale_smooth[,'ftr1'])
+features(regionsFeatures_scale_smooth)[['ftr1']][['elem1']][,1]
+plot(regionsFeatures_scale_smooth,type='curves',
+    N_regions=lengthRegions(regionsFeatures_scale_smooth),
+     id_features_subset='ftr1')
+@
+
+On this new dataset we can perform the two sample IWT test with \texttt{IWTomicsTest}, and plot the results as illustrated in Section \ref{sec:visualizing_test_results} (Figure \ref{summary_plot_scale}). 
+<<curve alignment scale - test,eval=TRUE,echo=TRUE,fig.height=2.5,fig.width=12,label=summary_plot_scale,results='markup',fig.show='hide',size="small">>=
+result=IWTomicsTest(regionsFeatures_scale_smooth,
+                    id_region1=c('elem1','elem2','elem3'),
+                    id_region2=c('control','control','control'),
+                    id_features_subset='ftr1')
+adjusted_pval(result)
+plotSummary(result,groupby='feature')
+@
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{IWTomics-summary_plot_scale-1}
+  \caption{Summary plot of IWT results on \texttt{Feature 1}, after obtaining measurements on the same grid with the function \texttt{smooth.IWTomics}.}
+  \label{summary_plot_scale}
+\end{figure}
+
+The function \texttt{smooth} can also be employed when the selected region alignment option is not \texttt{"scale"}. In this case it smooths the curves and filters out noise. Also here, there are three possible types of smoothing that can be chosen with the argument \texttt{type} (local polynomials, Nadaraya-Watson kernel smoothing with Gaussian kernel and regression b-splines). Smoothing options are set with \texttt{bandwidth}, \texttt{degree} and \texttt{dist\_knots}. As default, measurement resolution is mainteined after smoothing, so that smoothed curves are evaluated on the same grid as the original curves. In this default the user can decide whether to fill gaps or to keep \texttt{NA}s (argument \texttt{fill\_gaps}). Different measurement resolutions can be set through the argument \texttt{resolution}. If the resolution is set differently from the default, all gaps inside the curves are filled. An example is shown in the next chunk of code, where the resolution is changed from the original 2000 bp to 4000 bp for \texttt{Feature 1} and 1000 bp for \texttt{Feature 2}.
+
+<<change resolution,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+regionsFeatures
+lengthFeatures(regionsFeatures)
+regionsFeatures_smooth=smooth(regionsFeatures,type='locpoly',
+                              resolution=c(4000,1000))
+regionsFeatures_smooth
+lengthFeatures(regionsFeatures_smooth)
+@
+
+
+\section{Selection of relevant scale}
+\label{sec:scale}
+As mentioned in Subsection \ref{subsec:IWT}, IWT does not require fixing location and scale at the outset; when identifying the features that discriminate two groups of curves, relevant locations and scales are learned as part of the testing procedure and produced as an output. 
+
+The locations harboring a significant effect can be easily visualized by plotting the adjusted p-value curve (see Section \ref{sec:visualizing_test_results}). Identifying the relevant scale is less direct; it requires a careful investigation of the adjusted p-value heatmap obtained with the function \texttt{plotTest}. This heatmap shows the adjusted p-value curves at each of the scales under consideration; the bottom row shows the unadjusted p-value curve obtained by testing each position independently (smallest possible scale), while subsequent rows upward show the p-value curves adjusted up to an increasing maximum interval length (increasing scales). The top row shows the adjusted p-value curve at the maximum scale (the whole region). The heatmap can display different types of behavior. For example, Figure \ref{detailed_plot}(\subref{detailed_plot_1}) shows high p-value curves for all scales and locations, suggesting that the feature does not have any significant effect. On the contrary, Figure \ref{detailed_plot}(\subref{detailed_plot_2}) shows low p-value curves for all scales and locations, suggesting that the feature has a strong significant effect everywhere and acts at all scales. Finally, Figure \ref{detailed_plot}(\subref{detailed_plot_3}) shows a strong effect localized in the central portion of the region and acting at all scales (see blue band around the center). However, sometimes the effect of a feature may display itself only at some particular scales. In order to illustrate this more complex situation, in the next chunk of code we employ again the dataset used in Subsection \ref{subsec:not_fully_computable} and run the two sample version of IWT to compare \texttt{Feature 1} in \texttt{Elements 1} vs. \texttt{Controls}. Results are shown in Figure \ref{relevant_scale}.
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=0.6\linewidth]{IWTomics-relevant_scale-1}
+  \caption{Plots of IWT results for \texttt{Feature 1} in the comparisons \texttt{Elements 1} vs \texttt{Controls}, with adjusted p-value curves at the relevant scale of 8 windows (i.e. 16 kb).}
+  \label{relevant_scale}
+\end{figure}
+
+<<selection of relevant scale,eval=TRUE,echo=TRUE,fig.height=10,fig.width=8,label=relevant_scale,results='markup',fig.show='hide',size="small">>=
+result_scale=IWTomicsTest(regionsFeatures_center,
+                          id_region1='elem1',id_region2='control',
+                          id_features_subset='ftr1')
+plotTest(result_scale,alpha=0.05,scale_threshold=8)
+@
+
+Figure \ref{relevant_scale} indicates that \texttt{Feature 1}, in this example, has the ability to distinguish between \texttt{Elements 1} and \texttt{Controls} in the central part of the region. However, unlike the previous example, the blue band representing low p-values in the adjusted p-value heatmap is not fully separated from the high p-value portion of the region. Indeed, the effect of the feature appears to be more prominent at low scales (the blue portion is larger). The plot of the adjusted p-value curve at a scale threshold of 8 windows (corresponding to 16 kb), shown in the central panel of Figure \ref{relevant_scale}, supports this observation suggesting that the feature acts at a relevant scale of 8 windows (16 kb).
+
+
+\section{Setup}
+
+This vignette was built on:
+
+<<setup,eval=TRUE,echo=TRUE,results='markup',size="small">>=
+sessionInfo()
+@
+
+\bibliography{IWTomics_ref}
+
+\end{document}

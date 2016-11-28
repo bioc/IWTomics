@@ -1,0 +1,3 @@
+id	name	elem1	elem2	elem3	control
+ftr1	Feature 1	Feature1_elements1.bed	Feature1_elements2.bed	Feature1_elements3.bed	Feature1_controls.bed
+ftr2	Feature 2	Feature2_elements1.bed	Feature2_elements2.bed	Feature2_elements3.bed	Feature2_controls.bed
