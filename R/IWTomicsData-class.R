@@ -472,16 +472,17 @@ setMethod("adjusted_pval",c("IWTomicsData","vector","character","vector"),
                                        return(scale)
                                      })
             }
-            pval=mapply(function(results,scale) mapply(function(result,scale){
-              pval=result$adjusted_pval_matrix
-              if((scale<1)||(result$max_scale<scale)){
-                warning('invalid scale_threshold. Setting it to the default value.',call.=FALSE,immediate.=TRUE)
-                scale=result$max_scale
-              }
-              pval=pval[ncol(pval)-scale+1,]
-              return(pval)
-            },results,scale,SIMPLIFY=FALSE),
-            .testResults(x,test,id_features_subset),scale_threshold,SIMPLIFY=FALSE)
+            pval=mapply(function(results,scale)
+                          mapply(function(result,scale){
+                                   pval=result$adjusted_pval_matrix
+                                   if((scale<1)||(result$max_scale<scale)){
+                                     warning('invalid scale_threshold. Setting it to the default value.',call.=FALSE,immediate.=TRUE)
+                                     scale=result$max_scale
+                                   }
+                                   pval=pval[ncol(pval)-scale+1,]
+                                   return(pval)
+                                 },results,scale,SIMPLIFY=FALSE),
+                        .testResults(x,test,id_features_subset),scale_threshold,SIMPLIFY=FALSE)
             names(pval)=paste0('test',test)
             return(pval)
           })

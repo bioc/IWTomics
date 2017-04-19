@@ -1,22 +1,14 @@
 Package: IWTomics
 Type: Package
-Version: 0.99.11
-Date: 2016-11-28
+Version: 0.99.12
+Date: 2017-04-17
 Title: Interval-Wise Testing for Omics Data
-Author: Marzia A Cremona, Alessia Pini, Francesca Chiaromonte, Simone
-        Vantini
+Author: Marzia A Cremona, Alessia Pini, Francesca Chiaromonte, Simone Vantini
 Maintainer: Marzia A Cremona <mac78@psu.edu>
-Description: Implementation of the Interval-Wise Testing (IWT) for
-        omics data. This inferential procedure tests for differences in
-        "Omics" data between two groups of genomic regions (or between
-        a group of genomic regions and a reference center of symmetry),
-        and does not require fixing location and scale at the outset.
+Description: Implementation of the Interval-Wise Testing (IWT) for omics data. This inferential procedure tests for differences in "Omics" data between two groups of genomic regions (or between a group of genomic regions and a reference center of symmetry), and does not require fixing location and scale at the outset.
 Depends: GenomicRanges
-Imports:
-        parallel,gtable,grid,graphics,methods,IRanges,KernSmooth,fda,S4Vectors,grDevices,stats,utils,tools
+Imports: parallel,gtable,grid,graphics,methods,IRanges,KernSmooth,fda,S4Vectors,grDevices,stats,utils,tools
 Suggests: knitr
-VignetteBuilder: knitr
-biocViews: StatisticalMethod, MultipleComparison,
-        DifferentialExpression, DifferentialMethylation,
-        DifferentialPeakCalling, GenomeAnnotation, DataImport
+VignetteBuilder:knitr
+biocViews: StatisticalMethod, MultipleComparison, DifferentialExpression, DifferentialMethylation, DifferentialPeakCalling, GenomeAnnotation, DataImport
 License: GPL (>=2)

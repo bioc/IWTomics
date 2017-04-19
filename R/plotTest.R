@@ -82,7 +82,7 @@ plotTest <- function(regionsFeatures,alpha=0.05,scale_threshold=NULL,nlevel=100,
       
       # Adjusted p-value plot at scale_threshold
       par(mar=c(4,mar.left,1.5,1.5))
-      pval_scale_threshold=adjusted_pval(regionsFeatures,i,id_feature,scale_threshold_i)[[1]][[1]]
+      pval_scale_threshold=adjusted_pval(regionsFeatures,i,id_feature,scale_threshold_i[[id_feature]])[[1]][[1]]
       plot(1,type="n",xlim=c(x_plot[1]-diff(x_plot[1:2])/2,rev(x_plot)[1]+diff(x_plot[1:2])/2),ylim=c(0,1),ylab="p-value",xlab=xlab,xaxs="i",
            main=paste0("Adjusted p-values - Threshold ",scale_threshold_i[[id_feature]]),...)
       low.p.value=which((pval_scale_threshold<0.05)&(!is.infinite(pval_scale_threshold)))

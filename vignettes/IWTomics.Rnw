@@ -21,7 +21,7 @@ options(width=66)
 
 \title{Using \textsf{IWTomics} to detect genomic features that discriminate between different groups of regions.}
 \author{Marzia A Cremona\footnote{These authors contributed equally} \footnote{mac78@psu.edu} , Alessia Pini\footnotemark[1] , \\ Francesca Chiaromonte and Simone Vantini}
-\date{November 28, 2016}
+\date{April 19, 2017}
 
 
 \begin{document}

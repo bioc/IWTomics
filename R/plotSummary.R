@@ -46,17 +46,18 @@ plotSummary <- function(regionsFeatures,alpha=0.05,only_significant=FALSE,scale_
     if(!is.null(gaps_features))
        if(FALSE %in% (gaps_features %in% seq_along(id_features_subset)))
          stop('invalid gap_features.')
-    for(i in test){
+    for(i in seq_along(test)){
+      is.first=ifelse(i==1,TRUE,FALSE)
       filename_i=filenames[i]
       scale_threshold_i=scale_threshold[[i]]
-      id_region1_i=idRegionsTest(regionsFeatures,i)[[1]][1]
-      id_region2_i=idRegionsTest(regionsFeatures,i)[[1]][2]
+      id_region1_i=idRegionsTest(regionsFeatures,test[i])[[1]][1]
+      id_region2_i=idRegionsTest(regionsFeatures,test[i])[[1]][2]
       if((!is.null(id_region2_i))&&(id_region2_i==''))
         id_region2_i=NULL
       id_features_subset_i=id_features_subset
       gaps_features_i=gaps_features
-      result_i=.testResults(regionsFeatures,i,id_features_subset_i)[[1]]
-      pval_scale_threshold=Reduce(cbind,adjusted_pval(regionsFeatures,i,id_features_subset_i,scale_threshold_i)[[1]])
+      result_i=.testResults(regionsFeatures,test[i],id_features_subset_i)[[1]]
+      pval_scale_threshold=Reduce(cbind,adjusted_pval(regionsFeatures,test[i],id_features_subset_i,scale_threshold_i)[[1]])
       # Significant p-value
       significant=pval_scale_threshold
       significant[significant<1e-5]=1e-5
@@ -111,7 +112,7 @@ plotSummary <- function(regionsFeatures,alpha=0.05,only_significant=FALSE,scale_
       }else{
         main=paste0(nameRegions(regionsFeatures)[id_region1_i],' vs ',nameRegions(regionsFeatures)[id_region2_i])
       }
-      .pheatmap(t(log_significant),gaps_row=gaps_features_i,border_color="grey60",filename=filename_i,
+      .pheatmap(t(log_significant),gaps_row=gaps_features_i,border_color="grey60",filename=filename_i,is.first=is.first,
                 breaks=seq(-5,5,length.out=nlevel),color=colorRampPalette(c("navy","white","red"))(n=nlevel-1),
                 legend.main='-log10(p-value)',main=main,cex.main=2,xlab=xlab,ylab=ylab,thresholds=scale_threshold_i,
                 zero_lab=align_lab,zero_lab_pos=alignment(regionsFeatures),cellwidth=cellwidth,cellheight=cellheight,...)
@@ -127,6 +128,7 @@ plotSummary <- function(regionsFeatures,alpha=0.05,only_significant=FALSE,scale_
       if(FALSE %in% (gaps_tests %in% 1:nTests(regionsFeatures)))
         stop('invalid gap_tests.')
     for(i in seq_along(id_features_subset)){
+      is.first=ifelse(i==1,TRUE,FALSE)
       filename_i=filenames[i]
       scale_threshold_i=lapply(scale_threshold,function(scale_threshold) scale_threshold[id_features_subset[i]])
       id_region1_i=testInput(regionsFeatures)$id_region1[test]
@@ -203,7 +205,7 @@ plotSummary <- function(regionsFeatures,alpha=0.05,only_significant=FALSE,scale_
         row.names(log_significant)=round(seq(0,1,length.out=nrow(log_significant)),2)
       
       main=paste0(nameFeatures(regionsFeatures)[id_features_subset_i])
-      .pheatmap(t(log_significant),gaps_row=gaps_tests_i,border_color="grey60",filename=filename_i,
+      .pheatmap(t(log_significant),gaps_row=gaps_tests_i,border_color="grey60",filename=filename_i,is.first=is.first,
                 breaks=seq(-5,5,length.out=nlevel),color=colorRampPalette(c("navy","white","red"))(n=nlevel-1),
                 legend.main='-log10(p-value)',main=main,cex.main=2,xlab=xlab,ylab=ylab,thresholds=unlist(scale_threshold_i),
                 zero_lab=align_lab,zero_lab_pos=alignment(regionsFeatures),cellwidth=cellwidth,cellheight=cellheight,...)
@@ -219,7 +221,7 @@ plotSummary <- function(regionsFeatures,alpha=0.05,only_significant=FALSE,scale_
                        fontsize_row = fontsize, fontsize_col = fontsize, display_numbers = FALSE, 
                        number_format = "%.2f", number_color = "grey30", fontsize_number = 0.8 * fontsize, 
                        gaps_row = NULL, gaps_col = NULL, labels_row = NULL, 
-                       labels_col = NULL, filename = NA, width = NA, height = NA, 
+                       labels_col = NULL, filename = NA, is.first=TRUE, width = NA, height = NA, 
                        silent = FALSE, xlab = NA, ylab = NA, cex.main = 1.3, thresholds = NA, zero_lab = NA, zero_lab_pos = "center", ...) {
   # modified from pheatmap package
   
@@ -303,7 +305,8 @@ plotSummary <- function(regionsFeatures,alpha=0.05,only_significant=FALSE,scale_
                       labels_row = labels_row, labels_col = labels_col, xlab = xlab, ylab = ylab, cex.main = cex.main,...)
   
   if (is.na(filename) & !silent) {
-    grid.newpage()
+    if(!is.first)
+      grid.newpage()
     grid.draw(gt)
   }
   

@@ -7,7 +7,7 @@
 
 \description{
   Implementation of the Interval-Wise Testing for "Omics" data, an extended version 
-  of the Interval-Wise Testing for functional data presented in Pini and Vantini (2015). 
+  of the Interval-Wise Testing for functional data presented in Pini and Vantini (2017). 
   This inferential procedure tests for differences in "Omics" data between two groups 
   of genomic regions (or between a group of genomic regions and a reference curve), 
   and does not require fixing location and scale at the outset. 
@@ -19,8 +19,8 @@
   Maintainer: Marzia A Cremona <mac78@psu.edu>
 }
 \references{
-  A Pini and S Vantini (2015). Interval-Wise Testing for functional data. 
-  \emph{MOX-report 30/2015}, Politecnico di Milano.
+  A Pini and S Vantini (2017). Interval-Wise Testing for functional data. 
+  \emph{Journal of Nonparametric Statistics}.
 }
 \keyword{package}
 

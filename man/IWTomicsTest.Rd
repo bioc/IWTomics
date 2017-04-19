@@ -6,7 +6,7 @@
 \description{
   The function implements the Interval-Wise Testing for omics data (both one sample 
   and two sample tests), an extended version of the Interval-Wise Testing for functional 
-  data presented in Pini and Vantini (2015). This inferential procedure tests for 
+  data presented in Pini and Vantini (2017). This inferential procedure tests for 
   differences in feature measurements between two region datasets (two sample test) 
   or between a region dataset and a reference curve (one sample test).
 }
@@ -66,8 +66,8 @@ IWTomicsTest(regionsFeatures,
 }
 
 \references{
-  A Pini and S Vantini (2015). Interval-wise testing for functional data. 
-  \emph{MOX-report 30/2015}, Politecnico di Milano.
+  A Pini and S Vantini (2017). Interval-Wise Testing for functional data. 
+  \emph{Journal of Nonparametric Statistics}.
 }
 
 \author{

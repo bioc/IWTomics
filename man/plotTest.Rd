@@ -55,8 +55,8 @@ plotTest(regionsFeatures, alpha=0.05, scale_threshold=NULL, nlevel=100, type="bo
 \value{No value returned. The function produces a graphical output.}
 
 \references{
-  A Pini and S Vantini (2015). Interval-wise testing for functional data. 
-  \emph{MOX-report 30/2015}, Politecnico di Milano.
+  A Pini and S Vantini (2017). Interval-Wise Testing for functional data. 
+  \emph{Journal of Nonparametric Statistics}.
 }
 
 \author{
