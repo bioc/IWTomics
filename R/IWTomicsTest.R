@@ -144,7 +144,7 @@ IWTomicsTest <- function(regionsFeatures,
   }
   if(statistics=='variance'){
     T0_plot=apply(data,1,var,na.rm=TRUE)
-    T0=(T0_plot)^2
+    T0=T0_plot
   }
   if(exact){
     T_perm=do.call(cbind,lapply(seq_len(n+1)-1,
@@ -163,7 +163,7 @@ IWTomicsTest <- function(regionsFeatures,
                                                    return(T_perm)
                                                    }
                                                 if(statistics=='variance')
-                                                  return(apply(data_perm,1,var,na.rm=TRUE)^2)
+                                                  return(apply(data_perm,1,var,na.rm=TRUE))
                                                })
                                   return(T_perm)
                                 }))
@@ -181,7 +181,7 @@ IWTomicsTest <- function(regionsFeatures,
                                     return(T_perm)
                                   }
                                   if(statistics=='variance')
-                                    return(apply(data_perm,1,var,na.rm=TRUE)^2)
+                                    return(apply(data_perm,1,var,na.rm=TRUE))
                                 }))
     T_perm=cbind(T_perm,T0)
   }
@@ -279,7 +279,7 @@ IWTomicsTest <- function(regionsFeatures,
   }
   if(statistics=='variance'){
     T0_plot=apply(data1,1,var,na.rm=TRUE)/apply(data2,1,var,na.rm=TRUE)
-    T0=(T0_plot)^2
+    T0=T0_plot
   }
   if(exact){
     if(paired){
@@ -299,7 +299,7 @@ IWTomicsTest <- function(regionsFeatures,
                                                      return(T_perm)
                                                    }
                                                    if(statistics=='variance')
-                                                     return((apply(as.matrix(data_perm[,seq.int(n1)]),1,var,na.rm=TRUE)/apply(as.matrix(data_perm[,n1+seq.int(n2)]),1,var,na.rm=TRUE))^2)
+                                                     return((apply(as.matrix(data_perm[,seq.int(n1)]),1,var,na.rm=TRUE)/apply(as.matrix(data_perm[,n1+seq.int(n2)]),1,var,na.rm=TRUE)))
                                                  })
                                     return(T_perm)
                                   }))
@@ -317,7 +317,7 @@ IWTomicsTest <- function(regionsFeatures,
                        return(T_perm)
                      }
                      if(statistics=='variance')
-                       return((apply(as.matrix(data_perm[,seq.int(n1)]),1,var,na.rm=TRUE)/apply(as.matrix(data_perm[,n1+seq.int(n2)]),1,var,na.rm=TRUE))^2)
+                       return((apply(as.matrix(data_perm[,seq.int(n1)]),1,var,na.rm=TRUE)/apply(as.matrix(data_perm[,n1+seq.int(n2)]),1,var,na.rm=TRUE)))
                    })
     }
   }else{
@@ -339,7 +339,7 @@ IWTomicsTest <- function(regionsFeatures,
                                     return(T_perm)
                                   }
                                   if(statistics=='variance')
-                                    return((apply(as.matrix(data_perm[,seq.int(n1)]),1,var,na.rm=TRUE)/apply(as.matrix(data_perm[,n1+seq.int(n2)]),1,var,na.rm=TRUE))^2)
+                                    return((apply(as.matrix(data_perm[,seq.int(n1)]),1,var,na.rm=TRUE)/apply(as.matrix(data_perm[,n1+seq.int(n2)]),1,var,na.rm=TRUE)))
                                 }))
     T_perm=cbind(T_perm,T0)
   }
