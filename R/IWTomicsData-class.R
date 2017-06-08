@@ -204,7 +204,12 @@ setMethod("IWTomicsData",c("character","data.frame"),
               resolution=c()
               for(id_region in id_regions){
                 message('   Region dataset \'',name_regions[id_region],'\'...')
-                tmp=read.delim(file_features[id_feature,id_region],header=header,stringsAsFactors=FALSE,...)
+                if(header){
+                  tmp=read.delim(file_features[id_feature,id_region],header=TRUE,stringsAsFactors=FALSE,...)
+                }else{
+                  ncol=max(count.fields(file_features[id_feature,id_region],...))
+                  tmp=read.delim(file_features[id_feature,id_region],header=FALSE,stringsAsFactors=FALSE,col.names=paste0("V",seq_len(ncol)),...)
+                }
                 if(ncol(tmp)<4)
                   stop('invalid format in ',file_features[id_feature,id_region],'.')
                 measure.window=ifelse(ncol(tmp)==4,TRUE,FALSE)
