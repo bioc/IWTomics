@@ -75,7 +75,7 @@ setMethod("IWTomicsData",c("GRangesList","list"),
               id_regions=paste0('rgn',seq_along(regions))
             if(is.null(name_regions))
               name_regions=id_regions
-            region_datasets=data.frame(name=name_regions,file=NA,size=unlist(lapply(regions,length)),row.names=id_regions,stringsAsFactors=FALSE)
+            region_datasets=data.frame(name=name_regions,file=NA,size=lengths(regions),row.names=id_regions,stringsAsFactors=FALSE)
             for(id_region in id_regions){
               if(TRUE %in% duplicated(regions[[id_region]]))
                 stop('duplicated regions in ',id_region,'.')
@@ -193,7 +193,7 @@ setMethod("IWTomicsData",c("character","data.frame"),
               if(!isDisjoint(regions[[id_region]]))
                 warning('overlapping regions in ',file,'.')
             }
-            region_datasets$size=unlist(lapply(regions,length))
+            region_datasets$size=lengths(regions)
             regions=GRangesList(regions)
             
             features=list()
@@ -261,7 +261,7 @@ setMethod("IWTomicsData",c("character","data.frame"),
                                                                        function(region,tmp) lapply(region,function(region,tmp) subsetByOverlaps(tmp,region)$measure,tmp=tmp),tmp=tmp))
                     stopCluster(cl)
                   }else{
-                    feature.matrices[[id_region]]=lapply(regions[[id_region]],
+                    feature.matrices[[id_region]]=lapply(as(regions[[id_region]], "GRangesList"),
                                                            function(region) subsetByOverlaps(tmp,region)$measure)
                   }
                 }else{
