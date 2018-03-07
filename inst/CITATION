@@ -1,0 +1,22 @@
+citHeader("Please cite Cremona et al. (2018) for using IWTomics.")
+
+citEntry(entry  ="ARTICLE",
+         title  = "IWTomics: testing high-resolution sequence-based 'Omics' data at multiple locations and scales",
+         author = personList(
+             as.person("Marzia A Cremona"),
+             as.person("Alessia Pini"),
+             as.person("Fabio Cumbo"),
+             as.person("Kateryna D Makova"),
+             as.person("Francesca Chiaromonte"),
+             as.person("Simone Vantini")
+             ),
+         journal = "Bioinformatics",
+         year    = "2018",
+         volume  = "",
+         number  = "",
+         pages   = "bty090",
+         doi     = "10.1093/bioinformatics/bty090",
+         textVersion = paste("Marzia A Cremona, Alessia Pini, Fabio Cumbo, Kateryna D Makova, Francesca Chiaromonte, and Simone Vantini.",
+             "IWTomics: testing high-resolution sequence-based 'Omics' data at multiple locations and scales",
+             "Bioinformatics 2018, bty090")
+         )
