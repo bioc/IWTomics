@@ -50,8 +50,9 @@ In the extended version implemented in \textsf{IWTomics}, the IWT is not only lo
 \textsf{IWTomics} package is available at bioconductor.org and can be installed via \texttt{biocLite}, typing the following commands in the R console (an internet connection is needed)
 
 <<installation,eval=FALSE,size="small">>=
-source("http://www.bioconductor.org/biocLite.R")
-biocLite("IWTomics",dependencies=TRUE)
+if (!requireNamespace("BiocManager", quietly=TRUE))
+    install.packages("BiocManager")
+BiocManager::install("IWTomics",dependencies=TRUE)
 @
 
 After the package is installed, it can be loaded into R workspace typing
