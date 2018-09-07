@@ -47,7 +47,7 @@ Since the IWT is based on permutation tests (non-parametric tests), it does not 
 In the extended version implemented in \textsf{IWTomics}, the IWT is not only location-free but also scale-free. Indeed, it is able to investigate a range of different scales (from the finest one provided by the measurement resolution, to the coarsest one given by the region length), making it possible to assess the scale at which a feature displays its effect (see Section \ref{sec:scale} for details). Moreover, different test statistics can be employed (e.g. mean difference, variance ratio or quantile difference).
 
 \subsection{Installation and loading}
-\textsf{IWTomics} package is available at bioconductor.org and can be installed via \texttt{biocLite}, typing the following commands in the R console (an internet connection is needed)
+\textsf{IWTomics} package is available at bioconductor.org and can be installed, typing the following commands in the R console (an internet connection is needed)
 
 <<installation,eval=FALSE,size="small">>=
 if (!requireNamespace("BiocManager", quietly=TRUE))
