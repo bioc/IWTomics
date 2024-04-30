@@ -1,6 +1,6 @@
 Package: IWTomics
 Type: Package
-Version: 1.27.0
+Version: 1.28.0
 Date: 2021-11-21
 Title: Interval-Wise Testing for Omics Data
 Author: Marzia A Cremona, Alessia Pini, Francesca Chiaromonte, Simone Vantini
